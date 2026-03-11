@@ -1,10 +1,7 @@
-# app/crud.py
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, and_
+from sqlalchemy import func, and_
 from typing import List, Optional, Any
 from datetime import datetime
-from pydantic import model_dump
-
 from . import models, schemas
 
 
@@ -79,7 +76,7 @@ def delete_book(db: Session, book_id: int) -> bool:
     return False
 
 
-def get_stats(db: Session) -> model_dump[str, Any]:
+def get_stats(db: Session) -> dict[str, Any]:
     total = get_books_count(db)
 
     # Количество по жанрам
@@ -93,8 +90,7 @@ def get_stats(db: Session) -> model_dump[str, Any]:
 
     return {
         "total_books": total,
-        "genres_count": genres_count,
-        "latest_year": db.query(func.max(models.Book.year)).scalar()
+        "genres_count": genres_count
     }
 
 

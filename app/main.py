@@ -6,11 +6,11 @@ from .routers import books
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🚀 Запуск...")
+    print("Запуск...")
     if test_connection():
         init_db()
     yield
-    print("🛑 Остановка")
+    print("Остановка")
 
 app = FastAPI(
     title="Управление коллекцией книг",
@@ -29,4 +29,4 @@ app.include_router(books.router)
 
 @app.get("/")
 async def root():
-    return {"message": "API готово!", "docs": "/docs"}
+    return {"message": "Готово"}

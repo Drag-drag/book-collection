@@ -1,7 +1,5 @@
-import os
-
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 SQLALCHEMY_DATABASE_URI = "sqlite:///./books_collection.db"
@@ -29,8 +27,8 @@ def drop_db():
 def test_connection() -> bool:
     try:
         with SessionLocal() as session:
-            session.execute("SELECT 1")
+            session.execute(text("SELECT 1"))
             return True
     except Exception as e:
-        print(f"Ошибка: {e}")
+        print(f"Ошибка подключения: {e}")
         return False

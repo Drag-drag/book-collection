@@ -8,7 +8,8 @@ class Book(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(200), nullable=False, index=True)
     author = Column(String(100), nullable=False, index=True)
-    genre = Column(String(50), nullable=False, index=True)
+    genre = Column(String(50), nullable=True, index=True)
+    status = Column(String(50), nullable=False, index=True)
     description = Column(String, nullable=True)
 
     def __repr__(self):
