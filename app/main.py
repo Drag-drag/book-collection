@@ -1,10 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Depends
 from contextlib import asynccontextmanager
-from fastapi.staticfiles import StaticFiles
+from .config import templates
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 
-from .database import SessionLocal, init_db, test_connection
+from .database import SessionLocal, init_db, test_connection, get_db
 from .routers import books
+from . import crud
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -19,8 +22,7 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Раздача статики
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 
 # CORS — разрешаем localhost:5500
 app.add_middleware(
@@ -35,9 +37,13 @@ app.add_middleware(
 app.include_router(books.router)
 
 @app.get("/")
-async def root():
-    return {"message": "Готово"}
-
-@app.get("/ui")
-async def ui():
-    return {"message": "Перейдите на /static/index.html"}
+async def root(
+    request: Request,
+    db: Session = Depends(get_db)  # ← нужно импортировать из database
+):
+    books = crud.get_books(db, skip=0, limit=50)
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={"request": request, "books": books}
+    )

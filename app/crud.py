@@ -78,14 +78,20 @@ def delete_book(db: Session, book_id: int) -> bool:
 def get_stats(db: Session) -> dict[str, Any]:
     total = get_books_count(db)
 
-    # Количество по жанрам
-    genres = db.query(
-        models.Book.genre,
-        func.count(models.Book.id)
-    ).group_by(models.Book.genre).all()
+    genre_rows = db.query(models.Book.genre).filter(models.Book.genre.isnot(None)).all()
 
-    genres_count = {genre: count for genre, count in genres}
+    from collections import Counter
+    genres_counter = Counter()
 
+    for row in genre_rows:
+        if row.genre:
+            split_genres = [g.strip().lower() for g in row.genre.split(",") if g.strip()]
+            genres_counter.update(split_genres)
+
+    genres_count = {}
+    for genre, count in genres_counter.items():
+        normalized_genre = genre.capitalize()
+        genres_count[normalized_genre] = genres_count.get(normalized_genre, 0) + count
 
     return {
         "total_books": total,

@@ -1,11 +1,13 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, Form
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 import httpx
 
 
 from .. import crud, schemas, models
 from ..database import SessionLocal
+from ..config import templates
 
 # Создаем роутер
 router = APIRouter(
@@ -46,6 +48,13 @@ async def create_book_from_isbn(
     isbn_clean = ''.join(filter(str.isdigit, isbn))
     if not (10 <= len(isbn_clean) <= 13):
         raise HTTPException(status_code=400, detail="ISBN должен содержать 10 или 13 цифр.")
+
+    existing_book = db.query(models.Book).filter(models.Book.isbn == isbn_clean).first()
+    if existing_book:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Книга с ISBN {isbn_clean} уже существует"
+        )
 
     volume = None
     async with httpx.AsyncClient() as client:
@@ -91,13 +100,26 @@ async def create_book_from_isbn(
         )
 
     title = volume.get("title")
-    authors = [a.get("name") if isinstance(a, dict) else a for a in volume.get("authors", [])]
-    categories = [c.get("name") if isinstance(c, dict) else c for c in volume.get("categories", [])]
+    authors = volume.get("authors", [])
 
     if not title or not authors:
         raise HTTPException(status_code=400, detail="Недостаточно данных: нужны название и автор")
 
-    genre = categories[0] if categories else None
+    categories = volume.get("categories", [])
+
+    categories = volume.get("categories", [])
+
+    if categories:
+        genre_list = []
+        for c in categories:
+            if isinstance(c, dict) and "name" in c:
+                genre_list.append(c["name"])
+            elif isinstance(c, str):
+                genre_list.append(c)
+        genre = ", ".join(genre_list)
+    else:
+        genre = None
+
     author_str = ", ".join(authors)
 
     book_to_create = schemas.BookCreate(
@@ -148,12 +170,56 @@ async def update_book(
     return updated_book
 
 
+@router.get("/{book_id}/edit")
+async def edit_book_form(
+    book_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    book = crud.get_book(db, book_id=book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Книга не найдена")
+    return templates.TemplateResponse(
+        "edit_book.html",
+        {"request": request, "book": book}
+    )
+
+
+@router.post("/{book_id}/update")
+async def update_book_form(
+    book_id: int,
+    title: str = Form(...),
+    author: str = Form(...),
+    genre: str = Form(None),
+    status: str = Form("в планах"),
+    db: Session = Depends(get_db)
+):
+    book_data = schemas.BookUpdate(
+        title=title,
+        author=author,
+        genre=genre,
+        status=status
+    )
+    updated_book = crud.update_book(db, book_id=book_id, book=book_data)
+    if not updated_book:
+        raise HTTPException(status_code=404, detail="Книга не найдена")
+    return RedirectResponse("/", status_code=303)
+
 @router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_book(book_id: int, db: Session = Depends(get_db)):
     success = crud.delete_book(db, book_id=book_id)
     if not success:
         raise HTTPException(status_code=404, detail="Книга не найдена")
 
+@router.post("/{book_id}/delete")
+async def delete_book_form(
+    book_id: int,
+    db: Session = Depends(get_db)
+):
+    success = crud.delete_book(db, book_id=book_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Книга не найдена")
+    return RedirectResponse("/", status_code=303)
 
 @router.get("/stats/")
 async def get_stats(db: Session = Depends(get_db)):

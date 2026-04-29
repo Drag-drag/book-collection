@@ -80,9 +80,40 @@
       <div id="statsContent"></div>
     </div>
 
-    <!-- Список книг -->
-    <div id="booksGrid" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-      <!-- Книги загружаются динамически -->
+  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+      {% for book in books %}
+      <div class="col">
+        <div class="card h-100">
+          <img src="{{ book.image or 'https://picsum.photos/seed/' ~ book.id ~ '/300/400' }}"
+               alt="Обложка" class="book-cover"/>
+          <div class="card-body d-flex flex-column">
+            <h5 class="card-title">{{ book.title }}</h5>
+            <p class="text-muted mb-1"><strong>Автор:</strong> {{ book.author }}</p>
+            {% if book.genre %}
+              <p class="text-muted mb-1">
+                <strong>Жанры:</strong>
+                {% for g in book.genre.split(',') %}
+                  <span class="badge bg-secondary">{{ g.strip() }}</span>
+                {% endfor %}
+              </p>
+            {% endif %}
+            <span class="badge badge-status status-{{ book.status.replace(' ', '-') }} mt-auto">
+              {{ book.status }}
+            </span>
+          </div>
+          <div class="card-footer d-flex gap-2">
+            <a href="/books/{{ book.id }}/edit" class="btn btn-sm btn-warning w-100 flex-fill">
+              <i class="fas fa-edit"></i>
+            </a>
+            <form action="/books/{{ book.id }}/delete" method="post" class="flex-fill" onsubmit="return confirm('Удалить эту книгу?')">
+              <button type="submit" class="btn btn-sm btn-danger w-100">
+                <i class="fas fa-trash"></i>
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
     </div>
   </div>
 
@@ -158,44 +189,9 @@
   <script>
     const API_URL = 'http://127.0.0.1:8000'; // Измени, если нужно
 
-    // Загрузка книг при старте
-    window.onload = () => loadBooks();
+<!--    window.onload = () => loadBooks();-->
 
-    async function loadBooks() {
-      try {
-        const res = await fetch(`${API_URL}/books/?limit=50`);
-        const data = await res.json();
-        const container = document.getElementById('booksGrid');
-        container.innerHTML = '';
 
-        data.books.forEach(book => {
-          const statusClass = book.status.replace(' ', '-');
-          container.innerHTML += `
-            <div class="col">
-              <div class="card h-100">
-                <img src="${book.image || `https://picsum.photos/seed/${book.id}/300/400`}" ...
-                <div class="card-body d-flex flex-column">
-                  <h5 class="card-title">${book.title}</h5>
-                  <p class="text-muted mb-1"><strong>Автор:</strong> ${book.author}</p>
-                  ${book.genre ? `<p class="text-muted mb-1"><strong>Жанр:</strong> ${book.genre}</p>` : ''}
-                  <span class="badge badge-status status-${statusClass} mt-auto">${book.status}</span>
-                </div>
-                <div class="card-footer d-flex gap-2">
-                  <button class="btn btn-sm btn-warning flex-fill" onclick="editBook(${book.id})">
-                    <i class="fas fa-edit"></i>
-                  </button>
-                  <button class="btn btn-sm btn-danger flex-fill" onclick="deleteBook(${book.id})">
-                    <i class="fas fa-trash"></i>
-                  </button>
-                </div>
-              </div>
-            </div>
-          `;
-        });
-      } catch (err) {
-        alert("Ошибка загрузки книг: " + err.message);
-      }
-    }
 
     async function loadStats() {
       try {
@@ -236,7 +232,9 @@
         });
         alert('Книга добавлена!');
         bootstrap.Modal.getInstance(document.getElementById('addBookModal')).hide();
-        loadBooks();
+
+        window.location.reload();
+
       } catch (err) {
         alert('Ошибка: ' + err.message);
       }
@@ -260,7 +258,7 @@
 
         alert('Книга добавлена по ISBN!');
         bootstrap.Modal.getInstance(document.getElementById('isbnModal')).hide();
-        loadBooks();
+<!--        loadBooks();-->
       } catch (err) {
         alert('Ошибка: ' + (err.message || String(err)));
       }
@@ -276,7 +274,7 @@
 
       try {
         await fetch(`${API_URL}/books/${id}`, { method: 'DELETE' });
-        loadBooks();
+<!--        loadBooks();-->
       } catch (err) {
         alert('Ошибка удаления');
       }
