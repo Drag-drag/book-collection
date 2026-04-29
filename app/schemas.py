@@ -1,31 +1,25 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 
 
 class BookBase(BaseModel):
-    title: str
-    author: str
-    genre: str | None
-    status: str | None
+    title: Optional[str] = None      # ← сделали опциональными
+    author: Optional[str] = None     # ← иначе BookCreate не может создаться без них
+    genre: Optional[str] = None
+    status: Optional[str] = None
+    image: Optional[str] = None  # ← добавь
+
 
 class BookCreate(BookBase):
-    pass
+    isbn: Optional[str] = None
 
 class BookUpdate(BookBase):
-    status: str | None
-
-class BookInDB(BaseModel):
-    id: int
-    title: str
-    author: str
-    genre: str | None
-    status: str
-
-    class Config:
-        from_attributes = True
+    status: Optional[str] = None
+    isbn: Optional[str] = None
 
 class Book(BookBase):
     id: int
+    isbn: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -39,3 +33,6 @@ class BooksList(BaseModel):
 class Stats(BaseModel):
     total_books: int
     genres_count: dict
+
+class ISBNRequest(BaseModel):
+    isbn: str

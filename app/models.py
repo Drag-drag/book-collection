@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, DateTime, func
 from .database import Base
 
 
@@ -11,10 +11,13 @@ class Book(Base):
     genre = Column(String(50), nullable=True, index=True)
     status = Column(String(50), nullable=False, index=True)
     description = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    isbn = Column(String(13), unique=True, index=True, nullable=True)
+    image = Column(String, nullable=True)
 
     def __repr__(self):
         return f"<Book(id={self.id}, title='{self.title}', author='{self.author}')>"
-
 
 # class User(Base):
 #     __tablename__ = "users"

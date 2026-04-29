@@ -60,7 +60,6 @@ def update_book(
         update_data = book.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(db_book, field, value)
-        db_book.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(db_book)
         return schemas.Book.model_validate(db_book)
