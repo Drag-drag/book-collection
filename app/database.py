@@ -1,8 +1,8 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
+from .config import SQLALCHEMY_DATABASE_URI
 
-SQLALCHEMY_DATABASE_URI = "sqlite:///./books_collection.db"
 
 engine = create_engine(SQLALCHEMY_DATABASE_URI)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

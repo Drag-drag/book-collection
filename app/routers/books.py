@@ -1,15 +1,13 @@
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request, Form
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.orm import Session
 import httpx
 
-
 from .. import crud, schemas, models
-from ..database import SessionLocal
+from ..database import get_db
 from ..config import templates
 
-# Создаем роутер
+
 router = APIRouter(
     prefix="/books",
     tags=["books"],
@@ -18,15 +16,6 @@ router = APIRouter(
         400: {"description": "Некорректные данные"}
     }
 )
-
-
-# Dependency для БД
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @router.post("/", response_model=schemas.Book, status_code=status.HTTP_201_CREATED)
@@ -58,7 +47,7 @@ async def create_book_from_isbn(
 
     volume = None
     async with httpx.AsyncClient() as client:
-        # 1. Попробуем Google Books
+        # Попробуем Google Books
         try:
             resp = await client.get(
                 f"https://www.googleapis.com/books/v1/volumes?q=isbn:{isbn_clean}",
@@ -71,7 +60,7 @@ async def create_book_from_isbn(
         except Exception as e:
             print(f"Google Books error: {e}")
 
-        # 2. Если не нашли — пробуем Open Library
+        # Если не нашли — пробуем Open Library
         if not volume:
             try:
                 resp = await client.get(
@@ -107,8 +96,6 @@ async def create_book_from_isbn(
 
     categories = volume.get("categories", [])
 
-    categories = volume.get("categories", [])
-
     if categories:
         genre_list = []
         for c in categories:
@@ -136,15 +123,13 @@ async def create_book_from_isbn(
 
 @router.get("/", response_model=schemas.BooksList)
 async def read_books(
-        skip: int = Query(0, ge=0, description="С какого элемента начинать"),
-        limit: int = Query(10, ge=1, le=100, description="Количество элементов"),
         author: Optional[str] = Query(None, description="Фильтр по автору"),
         genre: Optional[str] = Query(None, description="Фильтр по жанру"),
         db: Session = Depends(get_db)
 ):
-    books = crud.get_books(db, skip=skip, limit=limit, author=author, genre=genre)
+    books = crud.get_books(db, author=author, genre=genre)
     total = crud.get_books_count(db, author=author, genre=genre)
-    return schemas.BooksList(books=books, total=total, skip=skip, limit=limit)
+    return schemas.BooksList(books=books, total=total)
 
 
 @router.get("/{book_id}", response_model=schemas.Book)
@@ -170,40 +155,8 @@ async def update_book(
     return updated_book
 
 
-@router.get("/{book_id}/edit")
-async def edit_book_form(
-    book_id: int,
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    book = crud.get_book(db, book_id=book_id)
-    if not book:
-        raise HTTPException(status_code=404, detail="Книга не найдена")
-    return templates.TemplateResponse(
-        "edit_book.html",
-        {"request": request, "book": book}
-    )
 
 
-@router.post("/{book_id}/update")
-async def update_book_form(
-    book_id: int,
-    title: str = Form(...),
-    author: str = Form(...),
-    genre: str = Form(None),
-    status: str = Form("в планах"),
-    db: Session = Depends(get_db)
-):
-    book_data = schemas.BookUpdate(
-        title=title,
-        author=author,
-        genre=genre,
-        status=status
-    )
-    updated_book = crud.update_book(db, book_id=book_id, book=book_data)
-    if not updated_book:
-        raise HTTPException(status_code=404, detail="Книга не найдена")
-    return RedirectResponse("/", status_code=303)
 
 @router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_book(book_id: int, db: Session = Depends(get_db)):
@@ -211,30 +164,21 @@ async def delete_book(book_id: int, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=404, detail="Книга не найдена")
 
-@router.post("/{book_id}/delete")
-async def delete_book_form(
-    book_id: int,
-    db: Session = Depends(get_db)
-):
-    success = crud.delete_book(db, book_id=book_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Книга не найдена")
-    return RedirectResponse("/", status_code=303)
 
 @router.get("/stats/")
 async def get_stats(db: Session = Depends(get_db)):
     return crud.get_stats(db)
 
 
-@router.get("/{book_id}/similar/")
-async def get_similar_books(
-        book_id: int,
-        limit: int = Query(5, ge=1, le=20),
-        db: Session = Depends(get_db)
-):
-    book = crud.get_book(db, book_id=book_id)
-    if not book:
-        raise HTTPException(status_code=404, detail="Книга не найдена")
-
-    similar = crud.get_similar_books(db, author=book.author, genre=book.genre, limit=limit, exclude_id=book_id)
-    return similar
+# @router.get("/{book_id}/similar/")
+# async def get_similar_books(
+#         book_id: int,
+#         limit: int = Query(5, ge=1, le=20),
+#         db: Session = Depends(get_db)
+# ):
+#     book = crud.get_book(db, book_id=book_id)
+#     if not book:
+#         raise HTTPException(status_code=404, detail="Книга не найдена")
+#
+#     similar = crud.get_similar_books(db, author=book.author, genre=book.genre, limit=limit, exclude_id=book_id)
+#     return similar

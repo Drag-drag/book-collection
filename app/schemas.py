@@ -3,23 +3,21 @@ from typing import List, Optional
 
 
 class BookBase(BaseModel):
-    title: Optional[str] = None      # ← сделали опциональными
-    author: Optional[str] = None     # ← иначе BookCreate не может создаться без них
+    title: str
+    author: str
     genre: Optional[str] = None
-    status: Optional[str] = None
-    image: Optional[str] = None  # ← добавь
-
+    status: str
+    image: Optional[str] = None
+    isbn: Optional[str] = None
 
 class BookCreate(BookBase):
-    isbn: Optional[str] = None
+    pass
 
 class BookUpdate(BookBase):
     status: Optional[str] = None
-    isbn: Optional[str] = None
 
 class Book(BookBase):
     id: int
-    isbn: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -27,8 +25,6 @@ class Book(BookBase):
 class BooksList(BaseModel):
     books: List[Book]
     total: int
-    skip: int
-    limit: int
 
 class Stats(BaseModel):
     total_books: int
@@ -36,3 +32,4 @@ class Stats(BaseModel):
 
 class ISBNRequest(BaseModel):
     isbn: str
+

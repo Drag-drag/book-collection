@@ -1,7 +1,6 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
 from typing import List, Optional, Any
-from datetime import datetime
 from . import models, schemas
 
 
@@ -15,20 +14,17 @@ def create_book(db: Session, book: schemas.BookCreate) -> schemas.Book:
 
 def get_books(
         db: Session,
-        skip: int = 0,
-        limit: int = 100,
         author: Optional[str] = None,
         genre: Optional[str] = None
 ) -> List[schemas.Book]:
     query = db.query(models.Book)
 
-    # Фильтры
     if author:
         query = query.filter(models.Book.author.ilike(f"%{author}%"))
     if genre:
         query = query.filter(models.Book.genre.ilike(f"%{genre}%"))
 
-    return query.offset(skip).limit(limit).all()
+    return query.all()
 
 
 def get_book(db: Session, book_id: int) -> Optional[schemas.Book]:
@@ -99,21 +95,21 @@ def get_stats(db: Session) -> dict[str, Any]:
     }
 
 
-def get_similar_books(
-        db: Session,
-        author: str,
-        genre: str,
-        limit: int = 5,
-        exclude_id: int = None
-) -> List[schemas.Book]:
-    query = db.query(models.Book).filter(
-        and_(
-            models.Book.author.ilike(f"%{author}%"),
-            models.Book.genre.ilike(f"%{genre}%")
-        )
-    )
-
-    if exclude_id:
-        query = query.filter(models.Book.id != exclude_id)
-
-    return query.limit(limit).all()
+# def get_similar_books(
+#         db: Session,
+#         author: str,
+#         genre: str,
+#         limit: int = 5,
+#         exclude_id: int = None
+# ) -> List[schemas.Book]:
+#     query = db.query(models.Book).filter(
+#         and_(
+#             models.Book.author.ilike(f"%{author}%"),
+#             models.Book.genre.ilike(f"%{genre}%")
+#         )
+#     )
+#
+#     if exclude_id:
+#         query = query.filter(models.Book.id != exclude_id)
+#
+#     return query.limit(limit).all()
