@@ -107,7 +107,10 @@ async def create_book_from_isbn(
     else:
         genre = None
 
-    author_str = ", ".join(authors)
+    author_str = ", ".join(
+        [a["name"] for a in authors if isinstance(a, dict) and "name" in a] +
+        [a for a in authors if isinstance(a, str)]
+    )
 
     book_to_create = schemas.BookCreate(
         title=title,
@@ -156,8 +159,6 @@ async def update_book(
 
 
 
-
-
 @router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_book(book_id: int, db: Session = Depends(get_db)):
     success = crud.delete_book(db, book_id=book_id)
@@ -170,15 +171,15 @@ async def get_stats(db: Session = Depends(get_db)):
     return crud.get_stats(db)
 
 
-# @router.get("/{book_id}/similar/")
-# async def get_similar_books(
-#         book_id: int,
-#         limit: int = Query(5, ge=1, le=20),
-#         db: Session = Depends(get_db)
-# ):
-#     book = crud.get_book(db, book_id=book_id)
-#     if not book:
-#         raise HTTPException(status_code=404, detail="Книга не найдена")
-#
-#     similar = crud.get_similar_books(db, author=book.author, genre=book.genre, limit=limit, exclude_id=book_id)
-#     return similar
+@router.get("/{book_id}/similar/")
+async def get_similar_books(
+        book_id: int,
+        limit: int = Query(5, ge=1, le=20),
+        db: Session = Depends(get_db)
+):
+    book = crud.get_book(db, book_id=book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail="Книга не найдена")
+
+    similar = crud.get_similar_books(db, author=book.author, genre=book.genre, limit=limit, exclude_id=book_id)
+    return similar

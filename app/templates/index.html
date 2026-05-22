@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Коллекция книг</title>
+  <title>Коллекция книг - ReadIt</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"/>
   <style>
@@ -30,7 +30,7 @@
     }
     .book-cover {
       height: 200px;
-      object-fit: cover;
+      object-fit: contain;
       border-radius: 1rem 1rem 0 0;
     }
     .footer {
@@ -55,7 +55,7 @@
 <body>
 
   <div class="header">
-    <h1><i class="fas fa-book"></i> Моя коллекция книг</h1>
+    <h1><i class="fas fa-book"></i> ReadIt </h1>
     <p>Добавляй, читай, вдохновляйся</p>
   </div>
 
@@ -73,6 +73,35 @@
         <i class="fas fa-chart-pie"></i> Статистика
       </button>
     </div>
+
+    <!-- Форма фильтрации -->
+    <div class="mb-4">
+      <form method="get" class="row g-3">
+        <div class="col-md-5">
+          <input
+            type="text"
+            name="author"
+            class="form-control"
+            placeholder="Фильтр по автору"
+            value="{{ request.query_params.get('author', '') }}"
+          />
+        </div>
+        <div class="col-md-5">
+          <input
+            type="text"
+            name="genre"
+            class="form-control"
+            placeholder="Фильтр по жанру"
+            value="{{ request.query_params.get('genre', '') }}"
+          />
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-outline-primary w-100">Фильтр</button>
+        </div>
+      </form>
+    </div>
+
+    <a href="/" class="btn btn-sm btn-link text-muted">Сбросить фильтры</a>
 
     <!-- Статистика -->
     <div id="statsSection" class="alert alert-light d-none mb-4">
@@ -105,8 +134,11 @@
             <button type="button" class="btn btn-sm btn-warning w-100 flex-fill" onclick='openEditModal({{ book.model_dump_json() }})'>
                 <i class="fas fa-edit"></i>
             </button>
-            <form action="/books/{{ book.id }}/delete" method="post" class="flex-fill" onsubmit="return confirm('Удалить эту книгу?')">
-              <button type="submit" class="btn btn-sm btn-danger w-100">
+            <button type="button" class="btn btn-sm btn-info w-100 flex-fill" onclick="showSimilarBooks({{ book.id }})">
+              <i class="fas fa-random"></i>
+            </button>
+            <form method="post" class="flex-fill" onsubmit="return confirm('Удалить эту книгу?')">
+              <button type="submit" class="btn btn-sm btn-danger w-100" onclick="deleteBook({{ book.id }})">
                 <i class="fas fa-trash"></i>
               </button>
             </form>
@@ -138,6 +170,10 @@
             <div class="mb-3">
               <label>Жанр</label>
               <input type="text" class="form-control" id="genre"/>
+            </div>
+            <div class="mb-3">
+              <label>Картинка (вставьте ссылку)</label>
+              <input type="text" class="form-control" id="image"/>
             </div>
             <div class="mb-3">
               <label>Статус</label>
@@ -224,6 +260,26 @@
   </div>
 </div>
 
+<!-- Модальное окно: Похожие книги -->
+<div class="modal fade" id="similarBooksModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Похожие книги</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div id="similar-books-list">
+          <!-- Сюда будут подгружаться книги -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+      </div>
+    </div>
+  </div>
+</div>
+
   <div class="footer">
     <p>📚 Коллекция книг | Создано с помощью FastAPI + Bootstrap</p>
   </div>
@@ -246,8 +302,19 @@
 
         document.getElementById('statsContent').innerHTML = `
           <p><strong>Всего книг:</strong> ${stats.total_books}</p>
+
           <p><strong>По жанрам:</strong></p>
           <ul>${genresHtml || '<li>Нет данных</li>'}</ul>
+
+          <p><strong>Топ авторов:</strong></p>
+          <ul>
+            ${Object.entries(stats.top_authors).length > 0
+              ? Object.entries(stats.top_authors)
+                  .map(([author, count]) => `<li>${author}: <strong>${count}</strong> книг</li>`)
+                  .join('')
+              : '<li>Нет данных</li>'
+            }
+          </ul>
         `;
       } catch (err) {
         alert("Не удалось загрузить статистику");
@@ -260,6 +327,7 @@
         title: document.getElementById('title').value,
         author: document.getElementById('author').value,
         genre: document.getElementById('genre').value || null,
+        image: document.getElementById('image').value || null,
         status: document.getElementById('status').value
       };
 
@@ -341,6 +409,58 @@
         alert('Ошибка: ' + err.message);
       }
     });
+
+    async function showSimilarBooks(bookId) {
+      try {
+        const res = await fetch(`${API_URL}/books/${bookId}/similar/`);
+        if (!res.ok) throw new Error("Не удалось загрузить");
+
+        const books = await res.json();
+
+        const container = document.getElementById("similar-books-list");
+        container.innerHTML = "";
+
+        if (books.length === 0) {
+          container.innerHTML = "<p>Похожих книг не найдено</p>";
+<!--          return;-->
+        }
+
+        const row = document.createElement("div");
+        row.className = "row row-cols-1 row-cols-md-2 g-3";
+
+        books.forEach(b => {
+          const col = document.createElement("div");
+          col.className = "col";
+
+          col.innerHTML = `
+            <div class="card h-100">
+              <img src="${b.image || 'https://picsum.photos/seed/' + b.id + '/300/400'}"
+                   class="card-img-top book-cover" alt="Обложка" style="height: 200px; object-fit: contain;">
+              <div class="card-body">
+                <h6 class="card-title">${b.title}</h6>
+                <p class="text-muted small mb-1">Автор: ${b.author}</p>
+                ${b.genre ? `
+                <p class="text-muted small mb-1">Жанры:
+                  ${b.genre.split(',').map(g => `<span class="badge bg-light text-dark">${g.trim()}</span>`).join(' ')}
+                </p>` : ''}
+                <span class="badge badge-status status-${b.status.replace(' ', '-')}">
+                  ${b.status}
+                </span>
+              </div>
+            </div>
+          `;
+          row.appendChild(col);
+        });
+
+        container.appendChild(row);
+
+        // Показываем модальное окно
+        new bootstrap.Modal(document.getElementById("similarBooksModal")).show();
+
+      } catch (err) {
+        alert("Ошибка: " + err.message);
+      }
+    }
 
     async function deleteBook(id) {
       if (!confirm('Удалить эту книгу?')) return;

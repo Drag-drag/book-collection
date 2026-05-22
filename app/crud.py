@@ -1,6 +1,8 @@
 from sqlalchemy.orm import Session
-from sqlalchemy import func, and_
+from sqlalchemy import func, and_, or_
 from typing import List, Optional, Any
+from collections import Counter
+
 from . import models, schemas
 
 
@@ -73,10 +75,7 @@ def delete_book(db: Session, book_id: int) -> bool:
 
 def get_stats(db: Session) -> dict[str, Any]:
     total = get_books_count(db)
-
     genre_rows = db.query(models.Book.genre).filter(models.Book.genre.isnot(None)).all()
-
-    from collections import Counter
     genres_counter = Counter()
 
     for row in genre_rows:
@@ -89,27 +88,43 @@ def get_stats(db: Session) -> dict[str, Any]:
         normalized_genre = genre.capitalize()
         genres_count[normalized_genre] = genres_count.get(normalized_genre, 0) + count
 
+    author_rows = db.query(models.Book.author).filter(models.Book.author.isnot(None)).all()
+    authors_counter = Counter()
+
+    for row in author_rows:
+        if row.author:
+            clean_author = row.author.strip()
+            if clean_author:
+                authors_counter[clean_author] += 1
+
+    # Берём топ-10 авторов
+    top_authors = dict(authors_counter.most_common(10))
+
     return {
         "total_books": total,
-        "genres_count": genres_count
+        "genres_count": genres_count,
+        "top_authors": top_authors
     }
 
 
-# def get_similar_books(
-#         db: Session,
-#         author: str,
-#         genre: str,
-#         limit: int = 5,
-#         exclude_id: int = None
-# ) -> List[schemas.Book]:
-#     query = db.query(models.Book).filter(
-#         and_(
-#             models.Book.author.ilike(f"%{author}%"),
-#             models.Book.genre.ilike(f"%{genre}%")
-#         )
-#     )
-#
-#     if exclude_id:
-#         query = query.filter(models.Book.id != exclude_id)
-#
-#     return query.limit(limit).all()
+def get_similar_books(
+        db: Session,
+        author: str,
+        genre: str,
+        limit: int = 5,
+        exclude_id: int = None
+) -> List[schemas.Book]:
+    query = db.query(models.Book)
+    print(query.all())
+    query = db.query(models.Book).filter(
+        or_(
+            models.Book.author.ilike(f"%{author}%"),
+            models.Book.genre.ilike(f"%{genre}%")
+        )
+    )
+
+    if exclude_id:
+        query = query.filter(models.Book.id != exclude_id)
+    print(author)
+    print(query.all())
+    return query.limit(limit).all()
