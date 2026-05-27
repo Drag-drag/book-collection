@@ -11,13 +11,11 @@ from .schemas import Book
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("Запуск...")
     if test_connection():
         init_db()
     yield
     with SessionLocal() as session:
         session.close_all()
-    print("Остановка")
 
 app = FastAPI(
     title="Управление коллекцией книг",

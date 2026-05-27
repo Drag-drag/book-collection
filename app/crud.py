@@ -114,8 +114,6 @@ def get_similar_books(
         limit: int = 5,
         exclude_id: int = None
 ) -> List[schemas.Book]:
-    query = db.query(models.Book)
-    print(query.all())
     query = db.query(models.Book).filter(
         or_(
             models.Book.author.ilike(f"%{author}%"),
@@ -125,6 +123,4 @@ def get_similar_books(
 
     if exclude_id:
         query = query.filter(models.Book.id != exclude_id)
-    print(author)
-    print(query.all())
     return query.limit(limit).all()
