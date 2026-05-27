@@ -18,11 +18,9 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
-    print("БД создана")
 
 def drop_db():
     Base.metadata.drop_all(bind=engine)
-    print("БД дропнута")
 
 def test_connection() -> bool:
     try:
@@ -30,5 +28,4 @@ def test_connection() -> bool:
             session.execute(text("SELECT 1"))
             return True
     except Exception as e:
-        print(f"Ошибка подключения: {e}")
         return False
