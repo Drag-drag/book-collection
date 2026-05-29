@@ -58,7 +58,7 @@ async def create_book_from_isbn(request: schemas.ISBNRequest, db: Session = Depe
                             "authors": [{"name": a["name"]} for a in ol_book.get("authors", [])],
                             "categories": [{"name": s["name"]} for s in ol_book.get("subjects", [])[:1]],
                             "imageLinks": {"thumbnail": ol_book.get("cover", {}).get("medium")},
-                            "description": ol_book.get("by_statement"),
+                            "description": ol_book.get("description") or ol_book.get("by_statement"),
                         }
             except Exception:
                 pass
@@ -76,8 +76,13 @@ async def create_book_from_isbn(request: schemas.ISBNRequest, db: Session = Depe
     author_str = ", ".join([a["name"] if isinstance(a, dict) else a for a in authors])
 
     book_to_create = schemas.BookCreate(
-        title=title, author=author_str, genre=genre, status="в планах",
-        isbn=isbn_clean, image=volume.get("imageLinks", {}).get("thumbnail")
+        title=title,
+        author=author_str,
+        genre=genre,
+        status="в планах",
+        isbn=isbn_clean,
+        description=volume.get("description"),
+        image=volume.get("imageLinks", {}).get("thumbnail")
     )
     return crud.create_book(db=db, book=book_to_create)
 
@@ -96,8 +101,6 @@ async def read_book(book_id: int, db: Session = Depends(get_db)):
 
 @router.put("/{book_id}", response_model=schemas.Book)
 async def update_book(book_id: int, book: schemas.BookUpdate, db: Session = Depends(get_db)):
-    if not book.model_dump(exclude_unset=True):
-        raise HTTPException(status_code=400, detail="Передайте хотя бы одно поле")
     updated_book = crud.update_book(db, book_id=book_id, book=book)
     if not updated_book:
         raise HTTPException(status_code=404, detail="Книга не найдена")
@@ -114,7 +117,4 @@ async def get_stats(db: Session = Depends(get_db)):
 
 @router.get("/{book_id}/similar/")
 async def get_similar_books(book_id: int, limit: int = Query(5, ge=1, le=20), db: Session = Depends(get_db)):
-    book = crud.get_book(db, book_id=book_id)
-    if not book:
-        raise HTTPException(status_code=404, detail="Книга не найдена")
-    return crud.get_similar_books(db, author=book.author, genre=book.genre, limit=limit, exclude_id=book_id)
+    return crud.get_similar_books(db, target_book_id=book_id, limit=limit)

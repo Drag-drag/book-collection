@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+sqlalchemy
+pydantic
+pydantic-settings
+jinja2
+httpx
+numpy
+sentence-transformers

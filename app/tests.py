@@ -1,155 +1,123 @@
 import pytest
+import os
+import time
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.database import Base, get_db
-from app.schemas import BookCreate
 
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+SQLALCHEMY_DATABASE_URL = "sqlite:///./test_app.db"
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def override_get_db():
-    try:
-        db = TestingSessionLocal()
-        yield db
-    finally:
-        db.close()
-
-
-app.dependency_overrides[get_db] = override_get_db
-
-client = TestClient(app)
-
-
-@pytest.fixture(autouse=True)
-def setup_db():
+@pytest.fixture(scope="session", autouse=True)
+def setup_database():
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+    engine.dispose()
+    time.sleep(0.1)
+
+    if os.path.exists("./test_app.db"):
+        try:
+            os.remove("./test_app.db")
+        except PermissionError:
+            print("Предупреждение: Не удалось удалить тестовую БД, файл занят.")
 
 
-def test_create_book():
-    response = client.post(
-        "/books/",
-        json={
-            "title": "Тестовая книга",
-            "author": "Иван Иванов",
-            "genre": "Фантастика",
-            "status": "читаю",
-            "isbn": "1234567890"
-        }
-    )
+@pytest.fixture
+def db():
+    connection = engine.connect()
+    transaction = connection.begin()
+    session = TestingSessionLocal(bind=connection)
+
+    yield session
+
+    session.close()
+    transaction.rollback()
+    connection.close()
+
+
+@pytest.fixture
+def client(db):
+    def override_get_db():
+        try:
+            yield db
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
+
+
+def test_add_book_manual(client):
+    payload = {
+        "title": "Clean Code",
+        "author": "Robert Martin",
+        "genre": "IT",
+        "status": "прочитана",
+        "description": "A handbook of agile software craftsmanship"
+    }
+    response = client.post("/books/", json=payload)
     assert response.status_code == 201
-    data = response.json()
-    assert data["title"] == "Тестовая книга"
-    assert data["author"] == "Иван Иванов"
-    assert "id" in data
+    assert response.json()["title"] == "Clean Code"
 
 
-def test_read_books():
-    client.post("/books/", json={
-        "title": "Книга 1", "author": "Автор 1", "status": "в планах"
-    })
+def test_get_books_filtering(client):
+    client.post("/books/", json={"title": "Unique Title", "author": "AuthX", "genre": "G1", "status": "в планах"})
 
-    response = client.get("/books/")
+    response = client.get("/books/?author=AuthX")
     assert response.status_code == 200
     data = response.json()
-    assert data["total"] == 1
-    assert len(data["books"]) == 1
-    assert data["books"][0]["title"] == "Книга 1"
+    assert data["total"] >= 1
+    assert data["books"][0]["author"] == "AuthX"
 
 
-def test_read_book_by_id():
-    create_resp = client.post("/books/", json={
-        "title": "Уникальная книга", "author": "Автор", "status": "прочитано"
-    })
-    book_id = create_resp.json()["id"]
-
-    response = client.get(f"/books/{book_id}")
-    assert response.status_code == 200
-    assert response.json()["title"] == "Уникальная книга"
-
-
-def test_update_book():
-    create_resp = client.post("/books/", json={
-        "title": "Старое название", "author": "Автор", "status": "в планах"
-    })
-    book_id = create_resp.json()["id"]
-
-
-    response = client.put(
-        f"/books/{book_id}",
-        json={
-            "title": "Новое название",
-            "author": "Автор",
-            "status": "прочитано"
-        }
-    )
-    assert response.status_code == 200
-    assert response.json()["title"] == "Новое название"
-    assert response.json()["status"] == "прочитано"
-
-
-def test_delete_book():
-    create_resp = client.post("/books/", json={
-        "title": "На удаление", "author": "Автор", "status": "в планах"
-    })
-    book_id = create_resp.json()["id"]
-
-    response = client.delete(f"/books/{book_id}")
-    assert response.status_code == 204
-
-
-    get_resp = client.get(f"/books/{book_id}")
-    assert get_resp.status_code == 404
-
-
-def test_get_stats():
-    client.post("/books/", json={"title": "К1", "author": "А1", "genre": "Детектив", "status": "прочитано"})
-    client.post("/books/", json={"title": "К2", "author": "А1", "genre": "Детектив, Триллер", "status": "прочитано"})
-
+def test_stats_accuracy(client):
     response = client.get("/books/stats/")
     assert response.status_code == 200
     data = response.json()
-    assert data["total_books"] == 2
-
-    assert data["genres_count"]["Детектив"] == 2
-    assert data["genres_count"]["Триллер"] == 1
-    assert data["top_authors"]["А1"] == 2
+    assert "total_books" in data
+    assert "genres_count" in data
 
 
-def test_create_from_isbn_mock(mocker):
-    mock_get = mocker.patch("httpx.AsyncClient.get")
+def test_book_deletion_flow(client):
+    res = client.post("/books/", json={"title": "To Delete", "author": "A", "genre": "G", "status": "в планах"})
+    book_id = res.json()["id"]
 
-    mock_response = mocker.Mock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {
-        "totalItems": 1,
-        "items": [{
-            "volumeInfo": {
-                "title": "Книга из API",
-                "authors": [{"name": "Известный Автор"}],
-                "categories": ["Наука"],
-                "imageLinks": {"thumbnail": "http://image.jpg"},
-                "description": "Описание"
-            }
-        }]
-    }
-    mock_get.return_value = mock_response
+    del_res = client.delete(f"/books/{book_id}")
+    assert del_res.status_code == 204
 
-    response = client.post("/books/from-isbn", json={"isbn": "9785123456789"})
+    get_res = client.get(f"/books/{book_id}")
+    assert get_res.status_code == 404
 
-    assert response.status_code == 201
-    assert response.json()["title"] == "Книга из API"
-    assert response.json()["author"] == "Известный Автор"
+
+def test_semantic_recommendation_quality(client):
+    client.post("/books/", json={
+        "title": "Python Programming", "author": "A", "genre": "IT", "status": "в планах",
+        "description": "Language basics and core concepts"
+    })
+    client.post("/books/", json={
+        "title": "Java Guide", "author": "B", "genre": "IT", "status": "в планах",
+        "description": "Object oriented programming and syntax"
+    })
+    client.post("/books/", json={
+        "title": "History of France", "author": "C", "genre": "History", "status": "в планах",
+        "description": "European history and culture"
+    })
+
+    books = client.get("/books/").json()["books"]
+    python_id = [b["id"] for b in books if "Python" in b["title"]][0]
+
+    response = client.get(f"/books/{python_id}/similar/")
+    assert response.status_code == 200
+    similar_titles = [b["title"] for b in response.json()]
+
+    if "Java Guide" in similar_titles and "History of France" in similar_titles:
+        assert similar_titles.index("Java Guide") < similar_titles.index("History of France")

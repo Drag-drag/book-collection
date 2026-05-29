@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, func
+from sqlalchemy import Column, Integer, String, DateTime, func, PickleType
 from .database import Base
 
 
@@ -15,6 +15,7 @@ class Book(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     isbn = Column(String(13), unique=True, index=True, nullable=True)
     image = Column(String, nullable=True)
+    embedding = Column(PickleType, nullable=True)
 
     def __repr__(self):
         return f"<Book(id={self.id}, title='{self.title}', author='{self.author}')>"

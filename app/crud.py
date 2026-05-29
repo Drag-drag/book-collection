@@ -2,11 +2,21 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from typing import List, Optional, Any
 from collections import Counter
+import numpy as np
+
 from . import models, schemas
+from .ml import ml_service
 
 
 def create_book(db: Session, book: schemas.BookCreate) -> schemas.Book:
-    db_book = models.Book(**book.model_dump())
+    embedding = ml_service.generate_embedding(
+        title=book.title,
+        author=book.author,
+        genre=book.genre or "",
+        description=book.description or ""
+    )
+
+    db_book = models.Book(**book.model_dump(), embedding=embedding)
     db.add(db_book)
     db.commit()
     db.refresh(db_book)
@@ -41,6 +51,14 @@ def update_book(db: Session, book_id: int, book: schemas.BookUpdate) -> Optional
         update_data = book.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(db_book, field, value)
+
+        db_book.embedding = ml_service.generate_embedding(
+            title=db_book.title,
+            author=db_book.author,
+            genre=db_book.genre or "",
+            description=db_book.description or ""
+        )
+
         db.commit()
         db.refresh(db_book)
         return schemas.Book.model_validate(db_book)
@@ -65,21 +83,28 @@ def get_stats(db: Session) -> dict[str, Any]:
             split_genres = [g.strip().lower() for g in row.genre.split(",") if g.strip()]
             genres_counter.update(split_genres)
 
-    genres_count = {g.capitalize(): c for g, c in genres_counter.items()}
-
+    genres_count = {genre.capitalize(): count for genre, count in genres_counter.items()}
     author_rows = db.query(models.Book.author).filter(models.Book.author.isnot(None)).all()
-    authors_counter = Counter(r.author.strip() for r in author_rows if r.author)
+    authors_counter = Counter(row.author.strip() for row in author_rows if row.author)
     top_authors = dict(authors_counter.most_common(10))
 
     return {"total_books": total, "genres_count": genres_count, "top_authors": top_authors}
 
 
-def get_similar_books(db: Session, author: str, genre: str, limit: int = 5, exclude_id: int = None) -> List[
-    schemas.Book]:
-    query = db.query(models.Book).filter(or_(
-        models.Book.author.ilike(f"%{author}%"),
-        models.Book.genre.ilike(f"%{genre}%")
-    ))
-    if exclude_id:
-        query = query.filter(models.Book.id != exclude_id)
-    return query.limit(limit).all()
+def get_similar_books(db: Session, target_book_id: int, limit: int = 5) -> List[schemas.Book]:
+    target_book = db.query(models.Book).filter(models.Book.id == target_book_id).first()
+    if not target_book or target_book.embedding is None:
+        return []
+
+    all_books = db.query(models.Book).filter(models.Book.id != target_book_id).all()
+
+    similarities = []
+    for book in all_books:
+        if book.embedding is not None:
+            score = ml_service.cosine_similarity(target_book.embedding, book.embedding)
+            # Порог схожести
+            if score > 0.4:
+                similarities.append((book, score))
+
+    similarities.sort(key=lambda x: x[1], reverse=True)
+    return [schemas.Book.model_validate(item[0]) for item in similarities[:limit]]
