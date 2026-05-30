@@ -1,0 +1,89 @@
+<!-- Модальное окно: Добавить книгу -->
+<div class="modal fade" id="addBookModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <form onsubmit="addBook(event)">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Новая книга</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label">Название *</label><input type="text" class="form-control" id="title" required/></div>
+                    <div class="mb-3"><label class="form-label">Автор *</label><input type="text" class="form-control" id="author" required/></div>
+                    <div class="mb-3"><label class="form-label">Жанры (через запятую)</label><input type="text" class="form-control" id="genre"/></div>
+                    <div class="mb-3"><label class="form-label">URL обложки</label><input type="text" class="form-control" id="image"/></div>
+                    <div class="mb-3">
+                        <label class="form-label">Статус</label>
+                        <select class="form-select" id="status">
+                            <option value="в планах">в планах</option>
+                            <option value="в процессе">в процессе</option>
+                            <option value="прочитана">прочитана</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="submit" class="btn btn-primary w-100">Сохранить</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно: ISBN -->
+<div class="modal fade" id="isbnModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <form onsubmit="addBookByISBN(event)">
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title">Импорт по ISBN</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small">Мы автоматически найдем данные о книге в Google Books и OpenLibrary.</p>
+                    <input type="text" class="form-control" id="isbn" placeholder="Например: 9780134685991" required/>
+                </div>
+                <div class="modal-footer"><button type="submit" class="btn btn-secondary w-100">Поиск и добавление</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно: Редактирование -->
+<div class="modal fade" id="editBookModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <form id="editBookForm">
+                <input type="hidden" id="edit-book-id">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">Редактирование</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3"><label class="form-label">Название</label><input type="text" class="form-control" id="edit-title" required /></div>
+                    <div class="mb-3"><label class="form-label">Автор</label><input type="text" class="form-control" id="edit-author" required /></div>
+                    <div class="mb-3"><label class="form-label">Жанр</label><input type="text" class="form-control" id="edit-genre" /></div>
+                    <div class="mb-3">
+                        <label class="form-label">Статус</label>
+                        <select class="form-select" id="edit-status">
+                            <option value="в планах">в планах</option>
+                            <option value="в процессе">в процессе</option>
+                            <option value="прочитана">прочитана</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="submit" class="btn btn-warning w-100">Сохранить изменения</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно: Рекомендации -->
+<div class="modal fade" id="similarBooksModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="fas fa-brain"></i> Семантически похожие книги</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="similar-books-list"></div>
+        </div>
+    </div>
+</div>

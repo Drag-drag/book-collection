@@ -1,453 +1,106 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Коллекция книг - ReadIt</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"/>
-  <style>
-    body {
-      background: #f8f9fa;
-      font-family: 'Segoe UI', sans-serif;
-    }
-    .header {
-      background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
-      color: white;
-      padding: 2rem 0;
-      text-align: center;
-      margin-bottom: 2rem;
-      border-radius: 0 0 1rem 1rem;
-    }
-    .card {
-      border: none;
-      border-radius: 1rem;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-      transition: transform 0.2s;
-    }
-    .card:hover {
-      transform: translateY(-5px);
-    }
-    .book-cover {
-      height: 200px;
-      object-fit: contain;
-      border-radius: 1rem 1rem 0 0;
-    }
-    .footer {
-      text-align: center;
-      margin-top: 3rem;
-      color: #6c757d;
-      font-size: 0.9rem;
-    }
-    .btn-primary {
-      background: linear-gradient(135deg, #6a11cb, #2575fc);
-      border: none;
-    }
-    .badge-status {
-      font-size: 0.8em;
-      padding: 0.5em 0.8em;
-    }
-    .status-прочитана { background: #d4edda; color: #155724; }
-    .status-в-планах { background: #d1ecf1; color: #0c5460; }
-    .status-в-процессе { background: #fff3cd; color: #856404; }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>ReadIt - Smart Book Collection</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"/>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/style.css') }}">
 </head>
 <body>
 
-  <div class="header">
-    <h1><i class="fas fa-book"></i> ReadIt </h1>
-    <p>Добавляй, читай, вдохновляйся</p>
-  </div>
-
-  <div class="container">
-    <div class="mb-4 d-flex justify-content-between flex-wrap gap-2">
-      <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addBookModal">
-        <i class="fas fa-plus"></i> Добавить вручную
-      </button>
-      <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#isbnModal">
-        <i class="fas fa-barcode"></i> По штрихкоду
-      </button>
-      <button class="btn btn-info text-white" onclick="loadStats()">
-        <i class="fas fa-chart-pie"></i> Статистика
-      </button>
+    <div class="header">
+        <h1><i class="fas fa-book-open"></i> ReadIt</h1>
+        <p class="lead">Интеллектуальная система управления личной библиотекой</p>
     </div>
 
-    <div class="mb-4">
-      <form method="get" class="row g-3">
-        <div class="col-md-5">
-          <input
-            type="text"
-            name="author"
-            class="form-control"
-            placeholder="Фильтр по автору"
-            value="{{ request.query_params.get('author', '') }}"
-          />
-        </div>
-        <div class="col-md-5">
-          <input
-            type="text"
-            name="genre"
-            class="form-control"
-            placeholder="Фильтр по жанру"
-            value="{{ request.query_params.get('genre', '') }}"
-          />
-        </div>
-        <div class="col-md-2">
-          <button type="submit" class="btn btn-outline-primary w-100">Фильтр</button>
-        </div>
-      </form>
-    </div>
-
-    <a href="/" class="btn btn-sm btn-link text-muted">Сбросить фильтры</a>
-
-    <div id="statsSection" class="alert alert-light d-none mb-4">
-      <h5><i class="fas fa-chart-line"></i> Статистика</h5>
-      <div id="statsContent"></div>
-    </div>
-
-  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
-      {% for book in books %}
-      <div class="col">
-        <div class="card h-100">
-          <img src="{{ book.image or 'https://picsum.photos/seed/' ~ book.id ~ '/300/400' }}"
-               alt="Обложка" class="book-cover"/>
-          <div class="card-body d-flex flex-column">
-            <h5 class="card-title">{{ book.title }}</h5>
-            <p class="text-muted mb-1"><strong>Автор:</strong> {{ book.author }}</p>
-            {% if book.genre %}
-              <p class="text-muted mb-1">
-                <strong>Жанры:</strong>
-                {% for g in book.genre.split(',') %}
-                  <span class="badge bg-secondary">{{ g.strip() }}</span>
-                {% endfor %}
-              </p>
-            {% endif %}
-            <span class="badge badge-status status-{{ book.status.replace(' ', '-') }} mt-auto">
-              {{ book.status }}
-            </span>
-          </div>
-          <div class="card-footer d-flex gap-2">
-            <button type="button" class="btn btn-sm btn-warning w-100 flex-fill" onclick='openEditModal({{ book.model_dump_json() }})'>
-                <i class="fas fa-edit"></i>
+    <div class="container">
+        <!-- Панель управления -->
+        <div class="mb-4 d-flex justify-content-between flex-wrap gap-2">
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#addBookModal">
+                    <i class="fas fa-plus"></i> Добавить вручную
+                </button>
+                <button class="btn btn-outline-secondary shadow-sm" data-bs-toggle="modal" data-bs-target="#isbnModal">
+                    <i class="fas fa-barcode"></i> По ISBN
+                </button>
+            </div>
+            <button class="btn btn-info text-white shadow-sm" onclick="loadStats()">
+                <i class="fas fa-chart-pie"></i> Статистика
             </button>
-            <button type="button" class="btn btn-sm btn-info w-100 flex-fill" onclick="showSimilarBooks({{ book.id }})">
-              <i class="fas fa-random"></i>
-            </button>
-            <form method="post" class="flex-fill" onsubmit="return confirm('Удалить эту книгу?')">
-              <button type="submit" class="btn btn-sm btn-danger w-100" onclick="deleteBook({{ book.id }})">
-                <i class="fas fa-trash"></i>
-              </button>
+        </div>
+
+        <!-- Поиск и фильтры -->
+        <div class="card mb-4 p-3 shadow-sm">
+            <form method="get" class="row g-3">
+                <div class="col-md-5">
+                    <input type="text" name="author" class="form-control" placeholder="Автор" value="{{ request.query_params.get('author', '') }}">
+                </div>
+                <div class="col-md-5">
+                    <input type="text" name="genre" class="form-control" placeholder="Жанр" value="{{ request.query_params.get('genre', '') }}">
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">Поиск</button>
+                </div>
             </form>
-          </div>
+            {% if request.query_params.get('author') or request.query_params.get('genre') %}
+                <div class="mt-2"><a href="/" class="text-muted small">Сбросить фильтры</a></div>
+            {% endif %}
         </div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
 
-  <div class="modal fade" id="addBookModal" tabindex="-1">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <form onsubmit="addBook(event)">
-          <div class="modal-header">
-            <h5 class="modal-title">Добавить книгу</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <div class="mb-3">
-              <label>Название *</label>
-              <input type="text" class="form-control" id="title" required/>
-            </div>
-            <div class="mb-3">
-              <label>Автор *</label>
-              <input type="text" class="form-control" id="author" required/>
-            </div>
-            <div class="mb-3">
-              <label>Жанр</label>
-              <input type="text" class="form-control" id="genre"/>
-            </div>
-            <div class="mb-3">
-              <label>Картинка (ссылка)</label>
-              <input type="text" class="form-control" id="image"/>
-            </div>
-            <div class="mb-3">
-              <label>Статус</label>
-              <select class="form-select" id="status">
-                <option value="в планах">в планах</option>
-                <option value="в процессе">в процессе</option>
-                <option value="прочитана">прочитана</option>
-              </select>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-            <button type="submit" class="btn btn-primary">Добавить</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <div class="modal fade" id="isbnModal" tabindex="-1">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <form onsubmit="addBookByISBN(event)">
-          <div class="modal-header">
-            <h5 class="modal-title">Добавить по ISBN</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <div class="modal-body">
-            <div class="mb-3">
-              <label>ISBN (10 или 13 цифр)</label>
-              <input type="text" class="form-control" id="isbn" placeholder="9780134685991" required/>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-            <button type="submit" class="btn btn-primary">Поиск и добавление</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-<div class="modal fade" id="editBookModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <form id="editBookForm">
-        <div class="modal-header">
-          <h5 class="modal-title">Редактировать книгу</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        <!-- Блок статистики -->
+        <div id="statsSection" class="alert alert-light border d-none mb-4 shadow-sm">
+            <h5><i class="fas fa-chart-line text-primary"></i> Аналитика коллекции</h5>
+            <div id="statsContent"></div>
         </div>
-        <div class="modal-body">
-          <input type="hidden" id="edit-book-id">
-          <div class="mb-3">
-            <label>Название *</label>
-            <input type="text" class="form-control" id="edit-title" required />
-          </div>
-          <div class="mb-3">
-            <label>Автор *</label>
-            <input type="text" class="form-control" id="edit-author" required />
-          </div>
-          <div class="mb-3">
-            <label>Жанр</label>
-            <input type="text" class="form-control" id="edit-genre" />
-          </div>
-          <div class="mb-3">
-            <label>Статус</label>
-            <select class="form-select" id="edit-status">
-              <option value="в планах">в планах</option>
-              <option value="в процессе">в процессе</option>
-              <option value="прочитана">прочитана</option>
-            </select>
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-          <button type="submit" class="btn btn-primary">Сохранить</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
 
-<div class="modal fade" id="similarBooksModal" tabindex="-1">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Похожие книги</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <div id="similar-books-list"></div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-  <div class="footer">
-    <p>📚 Коллекция книг | Создано с помощью FastAPI + Bootstrap</p>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    const API_URL = window.location.origin;
-
-    async function loadStats() {
-      try {
-        const res = await fetch(`${API_URL}/books/stats/`);
-        const stats = await res.json();
-        const section = document.getElementById('statsSection');
-        section.classList.remove('d-none');
-
-        let genresHtml = '';
-        for (const [genre, count] of Object.entries(stats.genres_count)) {
-          genresHtml += `<li>${genre || 'Не указан'}: <strong>${count}</strong></li>`;
-        }
-
-        document.getElementById('statsContent').innerHTML = `
-          <p><strong>Всего книг:</strong> ${stats.total_books}</p>
-          <p><strong>По жанрам:</strong></p>
-          <ul>${genresHtml || '<li>Нет данных</li>'}</ul>
-          <p><strong>Топ авторов:</strong></p>
-          <ul>
-            ${Object.entries(stats.top_authors).length > 0
-              ? Object.entries(stats.top_authors)
-                  .map(([author, count]) => `<li>${author}: <strong>${count}</strong> книг</li>`)
-                  .join('')
-              : '<li>Нет данных</li>'
-            }
-          </ul>
-        `;
-      } catch (err) {
-        alert("Не удалось загрузить статистику");
-      }
-    }
-
-    async function addBook(e) {
-      e.preventDefault();
-      const book = {
-        title: document.getElementById('title').value,
-        author: document.getElementById('author').value,
-        genre: document.getElementById('genre').value || null,
-        image: document.getElementById('image').value || null,
-        status: document.getElementById('status').value
-      };
-
-      try {
-        const res = await fetch(`${API_URL}/books/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(book)
-        });
-        if (!res.ok) throw new Error('Ошибка при добавлении');
-        alert('Книга добавлена!');
-        bootstrap.Modal.getInstance(document.getElementById('addBookModal')).hide();
-        window.location.reload();
-      } catch (err) {
-        alert('Ошибка: ' + err.message);
-      }
-    }
-
-    async function addBookByISBN(e) {
-      e.preventDefault();
-      const isbn = document.getElementById('isbn').value.trim();
-
-      try {
-        const res = await fetch(`${API_URL}/books/from-isbn`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ isbn })
-        });
-
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.detail || 'Ошибка');
-        }
-
-        alert('Книга добавлена по ISBN!');
-        bootstrap.Modal.getInstance(document.getElementById('isbnModal')).hide();
-        window.location.reload();
-      } catch (err) {
-        alert('Ошибка: ' + err.message);
-      }
-    }
-
-    function openEditModal(book) {
-      document.getElementById('edit-book-id').value = book.id;
-      document.getElementById('edit-title').value = book.title;
-      document.getElementById('edit-author').value = book.author;
-      document.getElementById('edit-genre').value = book.genre || '';
-      document.getElementById('edit-status').value = book.status;
-
-      new bootstrap.Modal(document.getElementById('editBookModal')).show();
-    }
-
-    document.getElementById('editBookForm').addEventListener('submit', async function(e) {
-      e.preventDefault();
-
-      const bookId = document.getElementById('edit-book-id').value;
-      const updatedBook = {
-        title: document.getElementById('edit-title').value,
-        author: document.getElementById('edit-author').value,
-        genre: document.getElementById('edit-genre').value || null,
-        status: document.getElementById('edit-status').value
-      };
-
-      try {
-        const res = await fetch(`${API_URL}/books/${bookId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(updatedBook)
-        });
-
-        if (!res.ok) throw new Error('Не удалось обновить');
-
-        alert('Книга обновлена!');
-        bootstrap.Modal.getInstance(document.getElementById('editBookModal')).hide();
-        window.location.reload();
-      } catch (err) {
-        alert('Ошибка: ' + err.message);
-      }
-    });
-
-    async function showSimilarBooks(bookId) {
-      try {
-        const res = await fetch(`${API_URL}/books/${bookId}/similar/`);
-        if (!res.ok) throw new Error("Не удалось загрузить");
-
-        const books = await res.json();
-        const container = document.getElementById("similar-books-list");
-        container.innerHTML = "";
-
-        if (books.length === 0) {
-          container.innerHTML = "<p>Похожих книг не найдено</p>";
-        }
-
-        const row = document.createElement("div");
-        row.className = "row row-cols-1 row-cols-md-2 g-3";
-
-        books.forEach(b => {
-          const col = document.createElement("div");
-          col.className = "col";
-          col.innerHTML = `
-            <div class="card h-100">
-              <img src="${b.image || 'https://picsum.photos/seed/' + b.id + '/300/400'}"
-                   class="card-img-top book-cover" alt="Обложка" style="height: 200px; object-fit: contain;">
-              <div class="card-body">
-                <h6 class="card-title">${b.title}</h6>
-                <p class="text-muted small mb-1">Автор: ${b.author}</p>
-                ${b.genre ? `
-                <p class="text-muted small mb-1">Жанры:
-                  ${b.genre.split(',').map(g => `<span class="badge bg-light text-dark">${g.trim()}</span>`).join(' ')}
-                </p>` : ''}
-                <span class="badge badge-status status-${b.status.replace(' ', '-')}">
-                  ${b.status}
-                </span>
-              </div>
+        <!-- Список книг -->
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            {% for book in books %}
+            <div class="col">
+                <div class="card h-100">
+                    <img src="{{ book.image or 'https://via.placeholder.com/300x400?text=Нет+обложки' }}" class="book-cover" alt="Cover">
+                    <div class="card-body">
+                        <h5 class="card-title text-truncate">{{ book.title }}</h5>
+                        <p class="text-muted mb-2"><strong>Автор:</strong> {{ book.author }}</p>
+                        <div class="mb-3">
+                            {% if book.genre %}
+                                {% for g in book.genre.split(',') %}
+                                    <span class="badge bg-light text-dark border">{{ g.strip() }}</span>
+                                {% endfor %}
+                            {% endif %}
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-auto">
+                            <span class="badge badge-status status-{{ book.status.replace(' ', '-') }}">
+                                {{ book.status }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent border-top-0 d-flex gap-2 pb-3">
+                        <button class="btn btn-sm btn-outline-warning flex-fill" onclick="openEditModal('{{ book.id }}', '{{ book.title }}', '{{ book.author }}', '{{ book.genre or '' }}', '{{ book.status }}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-info flex-fill" onclick="showSimilarBooks({{ book.id }})" title="Похожие книги">
+                            <i class="fas fa-brain"></i>
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger flex-fill" onclick="deleteBook({{ book.id }})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
-          `;
-          row.appendChild(col);
-        });
-        container.appendChild(row);
-        new bootstrap.Modal(document.getElementById("similarBooksModal")).show();
-      } catch (err) {
-        alert("Ошибка: " + err.message);
-      }
-    }
+            {% endfor %}
+        </div>
+    </div>
 
-    async function deleteBook(id) {
-      if (!confirm('Удалить эту книгу?')) return;
-      try {
-        await fetch(`${API_URL}/books/${id}`, { method: 'DELETE' });
-        window.location.reload();
-      } catch (err) {
-        alert('Ошибка удаления');
-      }
-    }
-  </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a03405b80ec5f103',t:'MTc4MDA0MjIyMw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+    {% include 'modals.html' %}
+
+    <div class="footer">
+        <p>© 2026 ReadIt Intelligence System | FastAPI + ML-Driven Insights</p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', path='/js/main.js') }}"></script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a03ec26fef93e496',t:'MTc4MDE1NDgxMA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

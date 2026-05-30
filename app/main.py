@@ -1,12 +1,13 @@
 from fastapi import FastAPI, Request, Depends
+from fastapi.staticfiles import StaticFiles  # Важно для CSS/JS
 from contextlib import asynccontextmanager
 from sqlalchemy.orm import Session
 
 from .database import SessionLocal, init_db, test_connection, get_db
 from .routers import books
-from . import crud
+from .services.book_service import BookService
 from .config import templates
-from .schemas import Book
+from . import models
 
 
 @asynccontextmanager
@@ -17,29 +18,30 @@ async def lifespan(app: FastAPI):
     with SessionLocal() as session:
         session.close_all()
 
+
 app = FastAPI(
-    title="Управление коллекцией книг",
+    title="Book Collection Professional",
+    description="Система управления коллекцией книг с использованием ML-рекомендаций",
     lifespan=lifespan
 )
 
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 app.include_router(books.router)
 
+
 @app.get("/")
-async def root(
-    request: Request,
-    author: str = None,
-    genre: str = None,
-    db: Session = Depends(get_db)
-):
-    books = crud.get_books(db, author=author, genre=genre)
-    books = [Book.model_validate(book) for book in books]
+async def root(request: Request, db: Session = Depends(get_db)):
+    service = BookService(db)
+    books_data = service.get_all(
+        author=request.query_params.get("author"),
+        genre=request.query_params.get("genre")
+    )
+
     return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={
+        "index.html",
+        {
             "request": request,
-            "books": books,
-            "author": author,
-            "genres": genre
+            "books": books_data
         }
     )
