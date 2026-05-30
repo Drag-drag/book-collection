@@ -6,7 +6,7 @@ class MLService:
         self.model = SentenceTransformer('all-MiniLM-L6-v2')
 
     def generate_embedding(self, title: str, author: str, genre: str, description: str = "") -> np.ndarray:
-        text = f"Title: {title}. Author: {author}. Genre: {genre}. Description: {description or ''}"
+        text = f"{title} {author} {genre} {description or ''}"
         embedding = self.model.encode(text)
         return embedding
 
